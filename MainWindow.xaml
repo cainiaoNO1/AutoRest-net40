@@ -1,0 +1,681 @@
+<Window x:Class="AutoRest.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:AutoRest.Controls"
+        mc:Ignorable="d"
+        Title="AutoRest"
+        Width="430"
+        Height="580"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen">
+
+  <Window.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolToVis" />
+  </Window.Resources>
+
+  <Grid Margin="14">
+    <!-- 主窗口圆角容器 -->
+    <Border Background="{StaticResource WindowBgBrush}"
+            BorderBrush="{StaticResource CardBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="16"
+            Effect="{StaticResource WindowShadow}"
+            ClipToBounds="True">
+      <Grid>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="46" /> <!-- 自定义标题栏 -->
+          <RowDefinition Height="*" />  <!-- 内容区 -->
+        </Grid.RowDefinitions>
+
+        <!-- ==================== 1. 自定义无边框标题栏 ==================== -->
+        <Border Grid.Row="0"
+                Background="#0D1017"
+                BorderBrush="{StaticResource CardBorderBrush}"
+                BorderThickness="0,0,0,1"
+                MouseDown="OnTitleBarMouseDown">
+          <Grid Margin="14,0,10,0">
+            <!-- 左侧 Logo 与标题 -->
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+              <!-- 闪电 Logo 图标 -->
+              <Border Width="24" Height="24" CornerRadius="6" Background="{StaticResource PrimaryBlueGradient}" Margin="0,0,8,0">
+                <Path Data="{StaticResource IconLightning}"
+                      Fill="#FFFFFF"
+                      Stretch="Uniform"
+                      Width="12"
+                      Height="12"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center" />
+              </Border>
+
+              <TextBlock Text="AutoRest"
+                         FontSize="14"
+                         FontWeight="Bold"
+                         Foreground="{StaticResource TextPrimaryBrush}"
+                         VerticalAlignment="Center" />
+
+              <!-- 状态胶囊 -->
+              <Border CornerRadius="4"
+                      Margin="8,0,0,0"
+                      Padding="6,2">
+                <Border.Style>
+                  <Style TargetType="Border">
+                    <Setter Property="Background" Value="#1E293B" />
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding IsTaskRunning}" Value="True">
+                        <Setter Property="Background" Value="#064E3B" />
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </Border.Style>
+                <TextBlock FontSize="10" FontWeight="SemiBold">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                      <Setter Property="Text" Value="待机中" />
+                      <Setter Property="Foreground" Value="{StaticResource BlueAccentBrush}" />
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsTaskRunning}" Value="True">
+                          <Setter Property="Text" Value="● 运行中" />
+                          <Setter Property="Foreground" Value="#34D399" />
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+              </Border>
+            </StackPanel>
+
+            <!-- 右侧操作按钮组 -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+              <!-- 设置齿轮 -->
+              <Button Style="{StaticResource TitleBarButtonStyle}"
+                      Command="{Binding ToggleSettingsCommand}"
+                      ToolTip="设置与开机自启">
+                <Path Data="{StaticResource IconSettings}"
+                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                      Stretch="Uniform"
+                      Width="14"
+                      Height="14" />
+              </Button>
+
+              <!-- 最小化到托盘 -->
+              <Button Style="{StaticResource TitleBarButtonStyle}"
+                      Click="OnMinimizeClicked"
+                      ToolTip="最小化到托盘">
+                <Path Data="{StaticResource IconMinimize}"
+                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                      Stretch="Uniform"
+                      Width="12"
+                      Height="12" />
+              </Button>
+
+              <!-- 关闭按钮 -->
+              <Button Style="{StaticResource TitleBarCloseButtonStyle}"
+                      Click="OnCloseClicked"
+                      ToolTip="关闭窗口">
+                <Path Data="{StaticResource IconClose}"
+                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                      Stretch="Uniform"
+                      Width="12"
+                      Height="12" />
+              </Button>
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <!-- ==================== 2. 主配置视图 (IsConfigViewVisible) ==================== -->
+        <Grid Grid.Row="1"
+              Margin="16,12"
+              Visibility="{Binding IsConfigViewVisible, Converter={StaticResource BoolToVis}}">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" /> <!-- 动作卡片 -->
+            <RowDefinition Height="Auto" /> <!-- 模式分段选择 -->
+            <RowDefinition Height="Auto" /> <!-- 周期参数 (每N天) -->
+            <RowDefinition Height="Auto" /> <!-- 时间滚轮与预设胶囊 -->
+            <RowDefinition Height="*" />    <!-- 弹性留白 -->
+            <RowDefinition Height="Auto" /> <!-- 底部自启状态与启动按钮 -->
+          </Grid.RowDefinitions>
+
+          <!-- 动作卡片区域 -->
+          <Grid Grid.Row="0" Margin="0,0,0,10">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- 标题栏与强制关闭复选框 -->
+            <Grid Grid.Row="0" Margin="2,0,2,6">
+              <TextBlock Text="执行动作"
+                         FontSize="12"
+                         FontWeight="SemiBold"
+                         Foreground="{StaticResource TextSecondaryBrush}"
+                         VerticalAlignment="Center" />
+
+              <CheckBox Content="强制关闭未响应程序 (/f)"
+                        IsChecked="{Binding ForceCloseApps}"
+                        Style="{StaticResource ModernCheckBoxStyle}"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center" />
+            </Grid>
+
+            <!-- 动作卡片单选组 -->
+            <Grid Grid.Row="1">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="10" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+
+              <!-- 定时关机卡片 -->
+              <RadioButton Grid.Column="0"
+                           GroupName="ActionGroup"
+                           IsChecked="{Binding IsShutdownAction}"
+                           Style="{StaticResource ActionCardRadioButtonStyle}">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <Border Width="32" Height="32" CornerRadius="8" Background="#1D2A44" VerticalAlignment="Center" Margin="0,0,8,0">
+                    <Path Data="{StaticResource IconPower}"
+                          Fill="{StaticResource BlueAccentBrush}"
+                          Stretch="Uniform"
+                          Width="16"
+                          Height="16"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center" />
+                  </Border>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="定时关机"
+                               FontSize="13"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource TextPrimaryBrush}" />
+                    <TextBlock Text="安全关闭计算机"
+                               FontSize="11"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               Margin="0,1,0,0" />
+                  </StackPanel>
+                </Grid>
+              </RadioButton>
+
+              <!-- 定时重启卡片 -->
+              <RadioButton Grid.Column="2"
+                           GroupName="ActionGroup"
+                           IsChecked="{Binding IsRebootAction}"
+                           Style="{StaticResource RestartCardRadioButtonStyle}">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <Border Width="32" Height="32" CornerRadius="8" Background="#3D2918" VerticalAlignment="Center" Margin="0,0,8,0">
+                    <Path Data="{StaticResource IconRestart}"
+                          Fill="{StaticResource AmberAccentBrush}"
+                          Stretch="Uniform"
+                          Width="16"
+                          Height="16"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center" />
+                  </Border>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="定时重启"
+                               FontSize="13"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource TextPrimaryBrush}" />
+                    <TextBlock Text="清理内存并重启"
+                               FontSize="11"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               Margin="0,1,0,0" />
+                  </StackPanel>
+                </Grid>
+              </RadioButton>
+            </Grid>
+          </Grid>
+
+          <!-- 模式切换分段器 -->
+          <Border Grid.Row="1"
+                  Background="{StaticResource InsetBgBrush}"
+                  BorderBrush="{StaticResource InsetBorderBrush}"
+                  BorderThickness="1"
+                  CornerRadius="10"
+                  Padding="3"
+                  Margin="0,0,0,8">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <RadioButton Grid.Column="0"
+                           Content="延时倒计时"
+                           GroupName="ModeGroup"
+                           IsChecked="{Binding IsCountdownMode}"
+                           Style="{StaticResource SegmentedRadioButtonStyle}" />
+              <RadioButton Grid.Column="1"
+                           Content="每天 / 每 N 天定时"
+                           GroupName="ModeGroup"
+                           IsChecked="{Binding IsScheduleMode}"
+                           Style="{StaticResource SegmentedRadioButtonStyle}" />
+            </Grid>
+          </Border>
+
+          <!-- 周期参数配置条（仅在计划定时模式下展开） -->
+          <Border Grid.Row="2"
+                  Background="{StaticResource CardBgBrush}"
+                  BorderBrush="{StaticResource CardBorderBrush}"
+                  BorderThickness="1"
+                  CornerRadius="10"
+                  Padding="10,6"
+                  Margin="0,0,0,8"
+                  Visibility="{Binding IsScheduleMode, Converter={StaticResource BoolToVis}}">
+            <Grid>
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <RadioButton Content="每天执行"
+                             GroupName="RecurType"
+                             IsChecked="{Binding IsDaily}"
+                             Foreground="{StaticResource TextPrimaryBrush}"
+                             FontSize="12"
+                             Margin="0,0,12,0"
+                             Cursor="Hand" />
+                <RadioButton Content="每隔 N 天"
+                             GroupName="RecurType"
+                             IsChecked="{Binding IsCustomInterval}"
+                             Foreground="{StaticResource TextPrimaryBrush}"
+                             FontSize="12"
+                             Cursor="Hand" />
+              </StackPanel>
+
+              <!-- 步进按钮 (每N天) -->
+              <StackPanel Orientation="Horizontal"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Center"
+                          Visibility="{Binding IsCustomInterval, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="间隔:"
+                           FontSize="11"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           VerticalAlignment="Center"
+                           Margin="0,0,6,0" />
+                <Button Content="-"
+                        Style="{StaticResource StepButtonStyle}"
+                        Command="{Binding StepIntervalCommand}"
+                        CommandParameter="-1" />
+                <TextBlock Text="{Binding IntervalDays}"
+                           FontSize="12"
+                           FontWeight="Bold"
+                           FontFamily="Consolas, Segoe UI"
+                           Foreground="{StaticResource BlueAccentBrush}"
+                           VerticalAlignment="Center"
+                           Width="24"
+                           TextAlignment="Center" />
+                <Button Content="+"
+                        Style="{StaticResource StepButtonStyle}"
+                        Command="{Binding StepIntervalCommand}"
+                        CommandParameter="1" />
+                <TextBlock Text="天"
+                           FontSize="11"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           VerticalAlignment="Center"
+                           Margin="4,0,0,0" />
+              </StackPanel>
+            </Grid>
+          </Border>
+
+          <!-- 时间选择区与快捷胶囊按钮 -->
+          <Border Grid.Row="3"
+                  Background="{StaticResource CardBgBrush}"
+                  BorderBrush="{StaticResource CardBorderBrush}"
+                  BorderThickness="1"
+                  CornerRadius="12"
+                  Padding="12,10"
+                  Margin="0,0,0,8">
+            <Grid>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+              </Grid.RowDefinitions>
+
+              <!-- 预计触发时间提示 -->
+              <Grid Grid.Row="0" Margin="0,0,0,6">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                  <Path Data="{StaticResource IconClock}"
+                        Fill="{StaticResource BlueAccentBrush}"
+                        Stretch="Uniform"
+                        Width="12"
+                        Height="12"
+                        Margin="0,0,6,0" />
+                  <TextBlock Text="设定时间"
+                             FontSize="12"
+                             FontWeight="SemiBold"
+                             Foreground="{StaticResource TextSecondaryBrush}" />
+                </StackPanel>
+                <TextBlock Text="{Binding ExpectedTriggerText}"
+                           FontSize="11"
+                           Foreground="{StaticResource BlueAccentBrush}"
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Center" />
+              </Grid>
+
+              <!-- 自定义时间滚轮控件 -->
+              <controls:TimeWheelControl Grid.Row="1"
+                                         Hours="{Binding SelectedHours, Mode=TwoWay}"
+                                         Minutes="{Binding SelectedMinutes, Mode=TwoWay}"
+                                         Seconds="{Binding SelectedSeconds, Mode=TwoWay}"
+                                         Margin="0,2,0,8" />
+
+              <!-- 快捷预设胶囊按钮 (4个) -->
+              <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="6" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="6" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="6" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="0"
+                        Content="30 分钟"
+                        Style="{StaticResource QuickChipButtonStyle}"
+                        Command="{Binding PresetCommand}"
+                        CommandParameter="30m" />
+                <Button Grid.Column="2"
+                        Content="1 小时"
+                        Style="{StaticResource QuickChipButtonStyle}"
+                        Command="{Binding PresetCommand}"
+                        CommandParameter="1h" />
+                <Button Grid.Column="4"
+                        Content="2 小时"
+                        Style="{StaticResource QuickChipButtonStyle}"
+                        Command="{Binding PresetCommand}"
+                        CommandParameter="2h" />
+                <Button Grid.Column="6"
+                        Content="今晚23:30"
+                        Style="{StaticResource QuickChipButtonStyle}"
+                        Command="{Binding PresetCommand}"
+                        CommandParameter="tonight2330" />
+              </Grid>
+            </Grid>
+          </Border>
+
+          <!-- 底部配置摘要与大主操作按钮 -->
+          <StackPanel Grid.Row="5">
+            <!-- 状态提示小字 -->
+            <Grid Margin="4,0,4,8">
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="● 开机自启: " FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
+                <TextBlock FontSize="11" FontWeight="SemiBold">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                      <Setter Property="Text" Value="已关闭" />
+                      <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding AutoStartOnBoot}" Value="True">
+                          <Setter Property="Text" Value="已开启" />
+                          <Setter Property="Foreground" Value="#34D399" />
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+              </StackPanel>
+
+              <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <TextBlock Text="后台驻留: " FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
+                <TextBlock Text="已开启" FontSize="11" FontWeight="SemiBold" Foreground="#34D399" />
+              </StackPanel>
+            </Grid>
+
+            <!-- 主按钮 (动态蓝色或橙色) -->
+            <Button Content="{Binding ActionButtonText}"
+                    Command="{Binding StartTaskCommand}">
+              <Button.Style>
+                <Style TargetType="Button" BasedOn="{StaticResource PrimaryActionButtonStyle}">
+                  <Setter Property="Background" Value="{StaticResource PrimaryBlueGradient}" />
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsRebootAction}" Value="True">
+                      <Setter Property="Background" Value="{StaticResource RestartAmberGradient}" />
+                      <Setter Property="Effect" Value="{StaticResource AmberGlowShadow}" />
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </Button.Style>
+            </Button>
+          </StackPanel>
+        </Grid>
+
+        <!-- ==================== 3. 运行中激活视图 (IsTaskRunning) ==================== -->
+        <Grid Grid.Row="1"
+              Margin="16,14"
+              Visibility="{Binding IsTaskRunning, Converter={StaticResource BoolToVis}}">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+
+          <!-- 任务类型徽章 -->
+          <Border Grid.Row="0"
+                  HorizontalAlignment="Center"
+                  Background="#1E293B"
+                  BorderBrush="#334155"
+                  BorderThickness="1"
+                  CornerRadius="12"
+                  Padding="12,4"
+                  Margin="0,0,0,10">
+            <TextBlock Text="{Binding ActiveTaskModeBadge}"
+                       FontSize="12"
+                       FontWeight="SemiBold"
+                       Foreground="{StaticResource BlueAccentBrush}" />
+          </Border>
+
+          <!-- 中央倒计时显示大圆盘/大字 -->
+          <Border Grid.Row="1"
+                  Background="{StaticResource InsetBgBrush}"
+                  BorderBrush="{StaticResource InsetBorderBrush}"
+                  BorderThickness="1"
+                  CornerRadius="20"
+                  Margin="0,6,0,14"
+                  Padding="20">
+            <Grid VerticalAlignment="Center" HorizontalAlignment="Center">
+              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="即将执行："
+                           FontSize="13"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="{Binding ActionName}"
+                           FontSize="18"
+                           FontWeight="Bold"
+                           Foreground="{StaticResource BlueAccentBrush}"
+                           HorizontalAlignment="Center"
+                           Margin="0,2,0,12" />
+
+                <!-- 倒计时大字 (等宽字体) -->
+                <TextBlock Text="{Binding RemainingTimeString}"
+                           FontSize="48"
+                           FontWeight="Bold"
+                           FontFamily="Consolas, Segoe UI"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,8" />
+
+                <!-- 进度条 -->
+                <ProgressBar Value="{Binding ProgressFraction, Mode=OneWay}"
+                             Minimum="0" Maximum="1"
+                             Height="6"
+                             Width="240"
+                             Foreground="{StaticResource BlueAccentBrush}"
+                             Background="#1F2433"
+                             BorderThickness="0"
+                             Margin="0,4,0,12" />
+
+                <!-- 预估触发时间 -->
+                <TextBlock Text="{Binding ActiveTaskTargetDesc}"
+                           FontSize="12"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           HorizontalAlignment="Center" />
+              </StackPanel>
+            </Grid>
+          </Border>
+
+          <!-- 提示说明卡片 -->
+          <Border Grid.Row="2"
+                  Background="{StaticResource CardBgBrush}"
+                  BorderBrush="{StaticResource CardBorderBrush}"
+                  BorderThickness="1"
+                  CornerRadius="10"
+                  Padding="10,8"
+                  Margin="0,0,0,12">
+            <TextBlock Text="● 软件已自动驻留托盘后台，即使关闭此窗口也不会中断任务。"
+                       FontSize="11"
+                       Foreground="{StaticResource TextSecondaryBrush}"
+                       TextWrapping="Wrap"
+                       HorizontalAlignment="Center" />
+          </Border>
+
+          <!-- 取消按钮 -->
+          <Button Grid.Row="3"
+                  Content="■ 取消当前定时任务"
+                  Command="{Binding CancelTaskCommand}"
+                  Style="{StaticResource DangerOutlineButtonStyle}" />
+        </Grid>
+
+        <!-- ==================== 4. 设置抽屉层 (Settings Drawer Overlay) ==================== -->
+        <Border Grid.Row="1"
+                Background="#EE111318"
+                Visibility="{Binding IsSettingsOpen, Converter={StaticResource BoolToVis}}"
+                Margin="0"
+                Padding="16,14">
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="*" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- 抽屉顶部标题与关闭按钮 -->
+            <Grid Grid.Row="0" Margin="0,0,0,16">
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Path Data="{StaticResource IconSettings}"
+                      Fill="{StaticResource BlueAccentBrush}"
+                      Stretch="Uniform"
+                      Width="16"
+                      Height="16"
+                      Margin="0,0,8,0" />
+                <TextBlock Text="通用设置与偏好"
+                           FontSize="15"
+                           FontWeight="Bold"
+                           Foreground="{StaticResource TextPrimaryBrush}" />
+              </StackPanel>
+
+              <Button Style="{StaticResource TitleBarButtonStyle}"
+                      HorizontalAlignment="Right"
+                      Command="{Binding ToggleSettingsCommand}">
+                <Path Data="{StaticResource IconClose}"
+                      Fill="{StaticResource TextSecondaryBrush}"
+                      Stretch="Uniform"
+                      Width="12"
+                      Height="12" />
+              </Button>
+            </Grid>
+
+            <!-- 开关配置列表 -->
+            <StackPanel Grid.Row="1">
+              <!-- 开关 1: 开机自启 -->
+              <Border Background="{StaticResource CardBgBrush}"
+                      BorderBrush="{StaticResource CardBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="10"
+                      Padding="12,10"
+                      Margin="0,0,0,10">
+                <Grid>
+                  <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="开机自动启动" FontSize="13" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" />
+                    <TextBlock Text="登录 Windows 后自动启动 AutoRest" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                  </StackPanel>
+                  <CheckBox IsChecked="{Binding AutoStartOnBoot}"
+                            Style="{StaticResource ModernSwitchToggleStyle}"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center" />
+                </Grid>
+              </Border>
+
+              <!-- 开关 2: 启动后自动缩小托盘 -->
+              <Border Background="{StaticResource CardBgBrush}"
+                      BorderBrush="{StaticResource CardBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="10"
+                      Padding="12,10"
+                      Margin="0,0,0,10">
+                <Grid>
+                  <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="静默后台启动" FontSize="13" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" />
+                    <TextBlock Text="启动时不弹出窗口，自动最小化到系统托盘" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                  </StackPanel>
+                  <CheckBox IsChecked="{Binding StartMinimizedToTray}"
+                            Style="{StaticResource ModernSwitchToggleStyle}"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center" />
+                </Grid>
+              </Border>
+
+              <!-- 开关 3: 点击关闭缩小托盘 -->
+              <Border Background="{StaticResource CardBgBrush}"
+                      BorderBrush="{StaticResource CardBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="10"
+                      Padding="12,10"
+                      Margin="0,0,0,10">
+                <Grid>
+                  <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="点击关闭最小化到托盘" FontSize="13" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" />
+                    <TextBlock Text="点击右上角叉号时不退出，保持后台运行" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                  </StackPanel>
+                  <CheckBox IsChecked="{Binding MinimizeOnClose}"
+                            Style="{StaticResource ModernSwitchToggleStyle}"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center" />
+                </Grid>
+              </Border>
+
+              <!-- 开关 4: 60秒置顶预警 -->
+              <Border Background="{StaticResource CardBgBrush}"
+                      BorderBrush="{StaticResource CardBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="10"
+                      Padding="12,10"
+                      Margin="0,0,0,10">
+                <Grid>
+                  <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="关机前 60 秒强提醒" FontSize="13" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" />
+                    <TextBlock Text="触发前弹出全屏置顶倒计时窗口并提供推迟按钮" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                  </StackPanel>
+                  <CheckBox IsChecked="{Binding ShowWarningBeforeAction}"
+                            Style="{StaticResource ModernSwitchToggleStyle}"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center" />
+                </Grid>
+              </Border>
+            </StackPanel>
+
+            <!-- 底部保存并完成按钮 -->
+            <Button Grid.Row="2"
+                    Content="完成设置并返回"
+                    Command="{Binding ToggleSettingsCommand}"
+                    Style="{StaticResource QuickChipButtonStyle}"
+                    Height="38"
+                    FontSize="13"
+                    FontWeight="SemiBold"
+                    HorizontalAlignment="Stretch" />
+          </Grid>
+        </Border>
+
+      </Grid>
+    </Border>
+  </Grid>
+</Window>
