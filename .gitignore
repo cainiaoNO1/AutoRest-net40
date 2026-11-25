@@ -1,0 +1,17 @@
+# 编译产物与临时文件
+bin/
+obj/
+*.pdb
+crash.log
+_tmp/
+ui-check*.png
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.suo
+*.user
+
+# Windows 缩略图
+Thumbs.db
+desktop.ini
